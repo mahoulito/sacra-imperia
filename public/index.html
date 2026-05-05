@@ -614,22 +614,25 @@ async function checkout(){
   const btn=document.querySelector('.pabt');
   if(btn){btn.disabled=true;btn.textContent='Conectando...';}
   try{
-    const stripe=Stripe(STRIPE_PK);
     const seen={};
     cart.forEach(i=>{seen[i.priceId]=(seen[i.priceId]||0)+1;});
-    const result=await stripe.redirectToCheckout({
-      lineItems:Object.entries(seen).map(([price,quantity])=>({price,quantity})),
-      mode:'payment',
-      successUrl:'https://sacraimperia.com?success=true',
-      cancelUrl:'https://sacraimperia.com?cancelled=true',
+    const lineItems=Object.entries(seen).map(([price,quantity])=>({price,quantity}));
+    const hasPreorder=cart.some(i=>i.pre);
+    const res=await fetch('/api/create-checkout',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lineItems,hasPreorder})
     });
-    if(result&&result.error){
-      alert('Error Stripe: '+result.error.message);
+    const data=await res.json();
+    if(data.error){
+      alert('Error: '+data.error);
       if(btn){btn.disabled=false;btn.textContent='Pagar';}
+      return;
     }
+    window.location.href=data.url;
   }catch(e){
-    console.error('Checkout error:',e);
-    alert('Error: '+(e.message||'No se pudo conectar con Stripe.'));
+    console.error(e);
+    alert('Error de conexión. Inténtalo de nuevo.');
     if(btn){btn.disabled=false;btn.textContent='Pagar';}
   }
 }
