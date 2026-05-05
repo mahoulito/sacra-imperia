@@ -611,17 +611,27 @@ document.getElementById('sgModal').addEventListener('click',function(e){if(e.tar
 
 async function checkout(){
   if(!cart.length){alert('Añade una camiseta al carrito primero.');return;}
+  const btn=document.querySelector('.pabt');
+  if(btn){btn.disabled=true;btn.textContent='Conectando...';}
   try{
     const stripe=Stripe(STRIPE_PK);
     const seen={};
     cart.forEach(i=>{seen[i.priceId]=(seen[i.priceId]||0)+1;});
-    await stripe.redirectToCheckout({
+    const result=await stripe.redirectToCheckout({
       lineItems:Object.entries(seen).map(([price,quantity])=>({price,quantity})),
       mode:'payment',
       successUrl:'https://sacraimperia.com?success=true',
       cancelUrl:'https://sacraimperia.com?cancelled=true',
     });
-  }catch(e){console.error(e);alert('Error al conectar con el pago. Por favor inténtalo de nuevo.');}
+    if(result&&result.error){
+      alert('Error Stripe: '+result.error.message);
+      if(btn){btn.disabled=false;btn.textContent='Pagar';}
+    }
+  }catch(e){
+    console.error('Checkout error:',e);
+    alert('Error: '+(e.message||'No se pudo conectar con Stripe.'));
+    if(btn){btn.disabled=false;btn.textContent='Pagar';}
+  }
 }
 
 function initMuseum(){buildColorRow();buildSizeGrid();buildGallery();updateBtn();}
