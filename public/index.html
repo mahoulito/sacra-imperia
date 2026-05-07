@@ -419,9 +419,29 @@ const STOCK={blanco:{"XXXS": 0, "XXS": 0, "XS": 0, "S": 1, "M": 2, "L": 1, "XL":
 const SIZES=["XXXS","XXS","XS","S","M","L","XL","XXL","XXXL"];
 const PRICE=39.90;
 const COUPONS={'ENMANO2025':{label:'Recogida en mano'},'SACRA10':{type:'percent',value:10,label:'10% dto'}};
-const PRICES={
-  crema:{XXXS:'price_1TLoCtFYnCbek8RJnnH6tEA8',XXS:'price_1TLoCtFYnCbek8RJnnH6tEA8',XS:'price_1TLoCtFYnCbek8RJnnH6tEA8',S:'price_1TLoCtFYnCbek8RJnnH6tEA8',M:'price_1TLoDIFYnCbek8RJcHldON0y',L:'price_1TLoEZFYnCbek8RJEdHQv2GI',XL:'price_1TLoEZFYnCbek8RJEdHQv2GI',XXL:'price_1TLoEZFYnCbek8RJEdHQv2GI',XXXL:'price_1TLoEZFYnCbek8RJEdHQv2GI'},
-  blanco:{XXXS:'price_1TLoA6FYnCbek8RJT0Wugxyc',XXS:'price_1TLoA6FYnCbek8RJT0Wugxyc',XS:'price_1TLoA6FYnCbek8RJT0Wugxyc',S:'price_1TLoA6FYnCbek8RJT0Wugxyc',M:'price_1TLoBOFYnCbek8RJUGKaHZYt',L:'price_1TLoCIFYnCbek8RJCWRb97hy',XL:'price_1TLoCIFYnCbek8RJCWRb97hy',XXL:'price_1TLoCIFYnCbek8RJCWRb97hy',XXXL:'price_1TLoCIFYnCbek8RJCWRb97hy'}
+const LINKS={
+  crema:{
+    XXXS:'https://buy.stripe.com/00w5kDgyb1oydws5YI0co0k',
+    XXS: 'https://buy.stripe.com/aFacN51Dh6ISfEAdra0co0j',
+    XS:  'https://buy.stripe.com/7sY28r81Febkbok2Mw0co0g',
+    S:   'https://buy.stripe.com/6oUaEXeq37MWbok9aU0co0f',
+    M:   'https://buy.stripe.com/8x2fZhfu74AKdws0Eo0co0e',
+    L:   'https://buy.stripe.com/8x214nchV7MW9gc86Q0co0b',
+    XL:  'https://buy.stripe.com/dRm9ATfu79V42ROfzi0co0a',
+    XXL: 'https://buy.stripe.com/00w9ATfu78R0bok0Eo0co09',
+    XXXL:'https://buy.stripe.com/00w3cv4Pt3wGcso0Eo0co08'
+  },
+  blanco:{
+    XXXS:'https://buy.stripe.com/dRm28rfu7ebkdws4UE0co0l',
+    XXS: 'https://buy.stripe.com/fZu00j81Fffo3VSbj20co0i',
+    XS:  'https://buy.stripe.com/dRm8wPchV9V4dws3QA0co0h',
+    S:   'https://buy.stripe.com/00w14n1Dhd7geAwbj20co0m',
+    M:   'https://buy.stripe.com/eVq4gza9Nffo0JG86Q0co0d',
+    L:   'https://buy.stripe.com/7sYfZh4Pt7MW3VScn60co0c',
+    XL:  'https://buy.stripe.com/aFa3cv2Hl9V48c8bj20co05',
+    XXL: 'https://buy.stripe.com/14A5kD2HlebkfEAgDm0co06',
+    XXXL:'https://buy.stripe.com/eVqdR9eq38R09gcdra0co07'
+  }
 };
 
 let selC='crema',selS=null,qty=1,curImg=0,cart=[],applied=null,emailDis=false,cartOpen=false,entered=false,entering=false;
@@ -533,7 +553,7 @@ function addToCart(){
       size:selS,price:up,
       img:IMGS[selC].all[0],
       pre:isPre,
-      priceId:PRICES[selC][selS]
+      link:LINKS[selC][selS]
     });
   }
   qty=1;document.getElementById('qval').textContent=1;
@@ -611,31 +631,55 @@ document.getElementById('sgModal').addEventListener('click',function(e){if(e.tar
 
 async function checkout(){
   if(!cart.length){alert('Añade una camiseta al carrito primero.');return;}
-  const btn=document.querySelector('.pabt');
-  if(btn){btn.disabled=true;btn.textContent='Conectando...';}
-  try{
-    const seen={};
-    cart.forEach(i=>{seen[i.priceId]=(seen[i.priceId]||0)+1;});
-    const lineItems=Object.entries(seen).map(([price,quantity])=>({price,quantity}));
-    const hasPreorder=cart.some(i=>i.pre);
-    const res=await fetch('/api/create-checkout',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({lineItems,hasPreorder})
-    });
-    const data=await res.json();
-    if(data.error){
-      alert('Error: '+data.error);
-      if(btn){btn.disabled=false;btn.textContent='Pagar';}
-      return;
-    }
-    window.location.href=data.url;
-  }catch(e){
-    console.error(e);
-    alert('Error de conexión. Inténtalo de nuevo.');
-    if(btn){btn.disabled=false;btn.textContent='Pagar';}
+
+  // Group cart items by their Payment Link
+  const grouped={};
+  cart.forEach(i=>{
+    if(!grouped[i.link]){grouped[i.link]={qty:0,label:`${i.colorLabel} · Talla ${i.size}`};}
+    grouped[i.link].qty++;
+  });
+  const entries=Object.entries(grouped);
+
+  // Single product (one Payment Link, possibly multiple quantity)
+  if(entries.length===1){
+    const [link,{qty}]=entries[0];
+    const url=qty>1?`${link}?quantity=${qty}`:link;
+    window.location.href=url;
+    return;
   }
+
+  // Multiple different products — open them in sequence
+  const msg=`Tu pedido tiene ${entries.length} productos diferentes.\n\nPor cómo funciona Stripe, vamos a abrir un pago por cada producto distinto. ¿Continuamos?\n\nDespués de pagar el primero, te llevará automáticamente al siguiente.`;
+  if(!confirm(msg))return;
+
+  // Save remaining links in localStorage to chain them
+  const remaining=entries.slice(1).map(([link,{qty}])=>qty>1?`${link}?quantity=${qty}`:link);
+  if(remaining.length){
+    try{sessionStorage.setItem('si_pending_links',JSON.stringify(remaining));}catch(e){}
+  }
+  const [firstLink,{qty:firstQty}]=entries[0];
+  window.location.href=firstQty>1?`${firstLink}?quantity=${firstQty}`:firstLink;
 }
+
+// Chain pending Payment Links after returning from successful Stripe payment
+window.addEventListener('load',()=>{
+  if(window.location.search.includes('success=true')){
+    try{
+      const pending=JSON.parse(sessionStorage.getItem('si_pending_links')||'[]');
+      if(pending.length){
+        const next=pending.shift();
+        sessionStorage.setItem('si_pending_links',JSON.stringify(pending));
+        if(confirm('✓ Pago realizado correctamente.\n\n¿Continuar con el siguiente producto de tu pedido?')){
+          window.location.href=next;
+        } else {
+          sessionStorage.removeItem('si_pending_links');
+        }
+      } else {
+        sessionStorage.removeItem('si_pending_links');
+      }
+    }catch(e){console.error(e);}
+  }
+});
 
 function initMuseum(){buildColorRow();buildSizeGrid();buildGallery();updateBtn();}
 const obs=new MutationObserver(()=>{
