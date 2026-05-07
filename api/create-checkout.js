@@ -29,9 +29,7 @@ export default async function handler(req, res) {
     params.append('mode', 'payment');
     params.append('success_url', 'https://sacraimperia.com?success=true' + (hasPreorder ? '&preorder=true' : ''));
     params.append('cancel_url', 'https://sacraimperia.com?cancelled=true');
-    params.append('payment_method_types[]', 'card');
-    params.append('payment_method_types[]', 'apple_pay');
-    params.append('payment_method_types[]', 'google_pay');
+   
 
     lineItems.forEach((item, i) => {
       params.append(`line_items[${i}][price]`, item.price);
